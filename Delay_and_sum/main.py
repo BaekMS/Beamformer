@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from numpy.fft import fft, ifft
 import librosa
 import scipy.signal
-import stft_test
+
 
 def main():
     
@@ -19,16 +19,59 @@ def main():
     num_angle=720    
     theta_d=90
 
-    beamforming_signal(wav, win_size, hop_size, fs, theta_d, delta)
-    for fs in range(800):
+    # beamforming_signal(wav, win_size, hop_size, fs, theta_d, delta)    
+    fig, ax=plt.subplots(1,3, subplot_kw={'projection': 'polar'})
+
+    delta=0.04
+    theta_d=0
+    # for fs in range(800):
+    for num, fs in enumerate([1000, 4000, 7000]):
         steer_set=[]
         angle_set=[]
-        f=(fs)*10
-        f=2000
+        # f=(fs)*10
+        f=fs
 
         steering_vector_d=calc_steer(wav.shape[1], theta_d, f, delta)
         h=steering_vector_d
-        beamforming_signal(wav, h)
+     
+        
+        for i in range(num_angle):
+            azi=i*360/num_angle
+            
+            steering_vector=calc_steer(wav.shape[1], azi, f, delta)
+            
+            beampattern=np.conj(steering_vector).T@h
+            beampattern=np.abs(beampattern)
+            beampattern=np.real(beampattern)
+            
+            steer_set.append(beampattern)
+            angle_set.append(azi*np.pi/180)
+        
+        steer_set=np.array(steer_set)
+        steer_set=20*np.log10(np.abs(steer_set)/np.max(steer_set))
+        angle_set=angle_set
+       
+        
+        # ax[num].set_title(str(f)+'Hz, '+str(theta_d))
+        ax[num].set_yticks([-60, -30,0])
+        ax[num].set_yticklabels(['-60dB', '-30dB', '0dB'])
+        ax[num].set_ylim([-60, 0])
+        ax[num].plot(angle_set, steer_set)
+        
+    plt.show()
+    exit()
+    
+    
+
+    for num, fs in enumerate([1000, 4000, 7000]):
+        steer_set=[]
+        angle_set=[]
+        # f=(fs)*10
+        f=fs
+
+        steering_vector_d=calc_steer(wav.shape[1], theta_d, f, delta)
+        h=steering_vector_d
+        # beamforming_signal(wav, h)
         for i in range(num_angle):
             azi=i*360/num_angle
             
@@ -50,17 +93,57 @@ def main():
         steer_set=20*np.log10(np.abs(steer_set)/np.max(steer_set))
         angle_set=angle_set
         # steer_set=steer_set
-        fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
+        # plt.subplot(1,1,1, subplot_kw={'projection': 'polar'})
+        ax = fig.add_subplot(9,2,num+1,polar=True)
         
-        ax.set_title(str(f)+'   '+str(theta_d))
+        # ax.set_title(str(f)+'Hz, '+str(theta_d))
         ax.set_yticks([-20, -10,0])
         ax.set_yticklabels(['-20dB', '-10dB', '0dB'])
         ax.plot(angle_set, steer_set)
-        plt.show(block=True)
-        # plt.pause(0.3)
-        # plt.close()
-        exit()
-        # ax.cla()
+    
+    delta=0.04
+    theta_d=0
+    for num, fs in enumerate([1000, 4000, 7000]):
+        steer_set=[]
+        angle_set=[]
+        # f=(fs)*10
+        f=fs
+
+        steering_vector_d=calc_steer(wav.shape[1], theta_d, f, delta)
+        h=steering_vector_d
+        # beamforming_signal(wav, h)
+        for i in range(num_angle):
+            azi=i*360/num_angle
+            
+            steering_vector=calc_steer(wav.shape[1], azi, f, delta)
+            
+            beampattern=np.conj(steering_vector).T@h
+            beampattern=np.abs(beampattern)
+            # beampattern/=wav.shape[1]**2
+            beampattern=np.real(beampattern)
+            
+            # beampattern=np.real(beampattern*np.conj(beampattern))
+            
+            steer_set.append(beampattern)
+            angle_set.append(azi*np.pi/180)
+        # print(azi)
+        
+        # plt.clf()
+        steer_set=np.array(steer_set)
+        steer_set=20*np.log10(np.abs(steer_set)/np.max(steer_set))
+        angle_set=angle_set
+        # steer_set=steer_set
+        # plt.subplot(1,1,1, subplot_kw={'projection': 'polar'})
+        ax = fig.add_subplot(9,3,num+1,polar=True)
+        
+        # ax.set_title(str(f)+'Hz, '+str(theta_d))
+        ax.set_yticks([-20, -10,0])
+        ax.set_yticklabels(['-20dB', '-10dB', '0dB'])
+        ax.plot(angle_set, steer_set)
+        
+    plt.show()
+    exit()
+  
         
     
 
@@ -98,27 +181,20 @@ def beamforming_signal(wav, win_size, hop_size, fs, theta_d, delta):
         flipped=np.flip(np.conj(fram[1:-1]))
         fram=np.concatenate((fram, flipped))        
         fram=np.real(ifft(fram))#*np.squeeze(window_function, axis=-1)
-        # print(fram.shape, result.shape)
         result[fram_no*hop_size:fram_no*hop_size+win_size]=fram+result[fram_no*hop_size:fram_no*hop_size+win_size]
     result=result[:original_wav_shape]
-    sf.write('beamform5.wav', result, fs)
-    plt.plot(result)
-    plt.show()
-    exit()
-    result=np.zeros(wav_freq.shape[0], dtype=np.complex64)    
-    delta=0.04
 
-    for num, f in enumerate(freq_bin):
-        steering_vector_d=calc_steer(wav_freq.shape[1], 0, f, delta)
-        h=steering_vector_d
-        a=np.conj(h).T@wav_freq[num,:]
-        result[num]=a
+
+    wav=wav[:original_wav_shape, 0]
+    noise=result-wav
     
-    flipped=np.conj(np.flip(result[1:-1]))
+    snr=10*np.log10((wav*wav).sum()/(noise*noise).sum()) 
+
+
+
+    sf.write('beamform5.wav', result, fs)
+
     
-    result=np.concatenate((result,np.conj(flipped)))
-    
-    result=ifft(result)
 
 
 
@@ -129,8 +205,7 @@ def calc_steer(vec_size, wav_azi, f, delta):
     for i in range(0, steering_vector.shape[0]):
         formula=-(i)*2*np.pi*f*delta/c*np.cos(wav_azi/180*np.pi)
         steering_vector[i]=np.exp(formula*1j)
-        # print(steering_vector)
-        # exit()
+        
         
 
     return steering_vector
@@ -167,9 +242,15 @@ def dataloader():
         else:
         
             final=np.concatenate((final, result), axis=1)
-    white=final
+    # gain
+    white=final[:wav.shape[0],:]*1.3065
+    wav_power=wav*wav
+    white_power=white*white
+    snr=10*np.log10(wav_power.sum()/white_power.sum())
+    
     wav+=white[:wav.shape[0],:]
-    # sf.write('noisy.wav', wav, fs)
+    sf.write('noisy.wav', wav, fs)
+    
     return wav, 0, final, 180
 
 
